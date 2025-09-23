@@ -1,0 +1,4 @@
+vgamepad>=0.0.8
+keyboard>=1.13.0
+pywin32>=306
+mouse>=0.7.1
