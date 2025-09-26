@@ -1,13 +1,14 @@
-import vgamepad as vg
-import time
-import threading
 import keyboard
 import mouse
 import win32api
-import json
-import os
+import vgamepad as vg
+import time
+import threading
 import logging
+import os
 import sys
+import json
+from .config import load_cfg, save_cfg, def_cfg
 
 class ControllerEmulator:
     def __init__(self):
@@ -21,110 +22,26 @@ class ControllerEmulator:
         self.lmt = 0.0
         self.dpad = vg.DS4_DPAD_DIRECTIONS.DS4_BUTTON_DPAD_NONE
         self.log = self.setup_log()
-        self.cfg = self.load_cfg()
+        self.cfg = load_cfg(self.log)
         self.setup_ctrl()
-        
+
     def deadzone(self, v, dz):
         return 0.0 if abs(v) < dz else v
-    
+
     def crv(self, d, s, e=1.5):
         return s * (abs(d) ** e) * (1 if d > 0 else -1)
-        
+
     def setup_log(self):
         l = logging.getLogger('ControllerEmulator')
         l.setLevel(logging.INFO)
-        
+
         if not l.handlers:
             h = logging.StreamHandler()
             f = logging.Formatter('%(levelname)s: %(message)s')
             h.setFormatter(f)
             l.addHandler(h)
-        
+
         return l
-        
-    def get_paths(self):
-        if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
-            bd = os.path.dirname(sys.executable)
-            dd = sys._MEIPASS 
-        else:
-            bd = os.path.dirname(__file__)
-            dd = bd
-
-        return {"base_dir": bd, "data_dir": dd}
-
-    def load_cfg(self):
-        p = self.get_paths()
-        c = [
-            os.path.join(p["base_dir"], 'config.json'),
-            os.path.join(p["data_dir"], 'config.json'),
-        ]
-        for cp in c:
-            try:
-                with open(cp, 'r') as f:
-                    return json.load(f)
-            except FileNotFoundError:
-                continue
-            except json.JSONDecodeError as e:
-                self.log.error(f"Invalid JSON in config file '{cp}': {e}")
-                break
-        self.log.warning("Config file not found, using defaults; a new one will be created next to the executable on save.")
-        cfg = self.def_cfg()
-        try:
-            prev = getattr(self, 'cfg', None)
-            self.cfg = cfg
-            self.save_cfg()
-            self.log.info("Default configuration created.")
-            if prev is not None:
-                self.cfg = prev
-        except Exception as e:
-            self.log.error(f"Could not create default config: {e}")
-        return cfg
-    
-    def save_cfg(self):
-        p = self.get_paths()
-        cp = os.path.join(p["base_dir"], 'config.json')
-        try:
-            os.makedirs(os.path.dirname(cp), exist_ok=True)
-            with open(cp, 'w') as f:
-                json.dump(self.cfg, f, indent=2)
-            self.log.info(f"Configuration saved successfully to {cp}")
-        except IOError as e:
-            self.log.error(f"Failed to save config to {cp}: {e}")
-            try:
-                ar = os.environ.get('APPDATA') or os.path.expanduser('~')
-                fd = os.path.join(ar, 'ControllerEmulator')
-                os.makedirs(fd, exist_ok=True)
-                fp = os.path.join(fd, 'config.json')
-                with open(fp, 'w') as f:
-                    json.dump(self.cfg, f, indent=2)
-                self.log.info(f"Configuration saved to fallback location {fp}")
-            except Exception as e2:
-                self.log.error(f"Fallback save failed: {e2}")
-    
-    def def_cfg(self):
-        return {
-            "keybinds": {
-                "movement": {"forward": "w", "backward": "s", "left": "a", "right": "d"},
-                "buttons": {
-                    "cross": "space", "circle": "c", "square": "x", "triangle": "y",
-                    "l1": "r", "r1": "t", "l2": "q", "r2": "e",
-                    "l3": "f", "r3": "g", "share": "backspace", "options": "enter",
-                    "touchpad": "tab", "ps": "home",
-                    "dpad_up": "i", "dpad_down": "k", "dpad_left": "j", "dpad_right": "l",
-                    "example_mouse_bind": "mouse:left"
-                },
-                "dpad": {
-                    "up": "up", "down": "down", "left": "left", "right": "right"
-                }
-            },
-            "settings": {
-                "mouse_sensitivity": 0.05, 
-                "deadzone_threshold": 0.01, 
-                "controller_type": "dualshock4",
-                "relative_mouse_mode": False,
-                "hide_cursor": False
-            }
-        }
 
     def setup_ctrl(self):
         try:
@@ -202,6 +119,34 @@ class ControllerEmulator:
             "touchpad": vg.DS4_SPECIAL_BUTTONS.DS4_SPECIAL_BUTTON_TOUCHPAD,
             "ps": vg.DS4_SPECIAL_BUTTONS.DS4_SPECIAL_BUTTON_PS
         }
+
+    def change_kb(self, cat, act, nk):
+        try:
+            if cat in self.cfg["keybinds"] and act in self.cfg["keybinds"][cat]:
+                self.cfg["keybinds"][cat][act] = nk
+                save_cfg(self.cfg, self.log)
+                self.log.info(f"Changed {act} to {nk}")
+                return True
+            else:
+                self.log.error(f"Invalid keybind: {cat}.{act}")
+                return False
+        except Exception as e:
+            self.log.error(f"Failed to change keybind: {e}")
+            return False
+
+    def change_set(self, s, v):
+        try:
+            if s in self.cfg["settings"]:
+                self.cfg["settings"][s] = v
+                save_cfg(self.cfg, self.log)
+                self.log.info(f"Changed {s} to {v}")
+                return True
+            else:
+                self.log.error(f"Invalid setting: {s}")
+                return False
+        except Exception as e:
+            self.log.error(f"Failed to change setting: {e}")
+            return False
 
     def setup_mouse(self):
         try:
@@ -449,33 +394,31 @@ class ControllerEmulator:
         except KeyError as e:
             self.log.error(f"Missing control configuration: {e}")
 
-    def change_kb(self, cat, act, nk):
-        try:
-            if cat in self.cfg["keybinds"] and act in self.cfg["keybinds"][cat]:
-                self.cfg["keybinds"][cat][act] = nk
-                self.save_cfg()
-                self.log.info(f"Changed {act} to {nk}")
-                return True
-            else:
-                self.log.error(f"Invalid keybind: {cat}.{act}")
-                return False
-        except Exception as e:
-            self.log.error(f"Failed to change keybind: {e}")
-            return False
+    def demo(self):
+        self.log.info("Running demo sequence...")
 
-    def change_set(self, s, v):
         try:
-            if s in self.cfg["settings"]:
-                self.cfg["settings"][s] = v
-                self.save_cfg()
-                self.log.info(f"Changed {s} to {v}")
-                return True
-            else:
-                self.log.error(f"Invalid setting: {s}")
-                return False
+            self.btn_state(vg.DS4_BUTTONS.DS4_BUTTON_CROSS, True)
+            time.sleep(0.5)
+            self.btn_state(vg.DS4_BUTTONS.DS4_BUTTON_CROSS, False)
+
+            print("Moving left joystick...")
+            mvs = [(1.0, 0.0), (0.0, 1.0), (-1.0, 0.0), (0.0, -1.0)]
+            for x, y in mvs:
+                self.left_stick(x, y)
+                time.sleep(1.0)
+
+            print("Testing triggers...")
+            self.trig("l2", 1.0)
+            time.sleep(0.5)
+            self.trig("r2", 1.0)
+            time.sleep(0.5)
+
+            self.reset()
+            self.log.info("Demo sequence completed!")
+
         except Exception as e:
-            self.log.error(f"Failed to change setting: {e}")
-            return False
+            self.log.error(f"Demo sequence failed: {e}")
 
     def show_menu(self):
         mo = {
@@ -554,69 +497,3 @@ class ControllerEmulator:
                     self.change_kb("buttons", bn, nk)
             except KeyError:
                 self.log.error(f"Missing button key: {bn}")
-
-    def demo(self):
-        self.log.info("Running demo sequence...")
-        
-        try:
-            self.btn_state(vg.DS4_BUTTONS.DS4_BUTTON_CROSS, True)
-            time.sleep(0.5)
-            self.btn_state(vg.DS4_BUTTONS.DS4_BUTTON_CROSS, False)
-            
-            print("Moving left joystick...")
-            mvs = [(1.0, 0.0), (0.0, 1.0), (-1.0, 0.0), (0.0, -1.0)]
-            for x, y in mvs:
-                self.left_stick(x, y)
-                time.sleep(1.0)
-            
-            print("Testing triggers...")
-            self.trig("l2", 1.0)
-            time.sleep(0.5)
-            self.trig("r2", 1.0)
-            time.sleep(0.5)
-            
-            self.reset()
-            self.log.info("Demo sequence completed!")
-            
-        except Exception as e:
-            self.log.error(f"Demo sequence failed: {e}")
-
-def main():
-    print("Kois PS4 Controller Emulater")
-    print("===============================================")
-    
-    try:
-        emu = ControllerEmulator()
-        
-        while True:
-            print("\nOptions:")
-            print("1. Start keyboard and mouse mapping")
-            print("2. Run demo sequence")
-            print("3. Reset controller")
-            print("4. Configuration menu")
-            print("5. Exit")
-            
-            c = input("Enter your choice (1-5): ").strip()
-            
-            if c == "1":
-                emu.start_kb()
-            elif c == "2":
-                emu.demo()
-            elif c == "3":
-                emu.reset()
-            elif c == "4":
-                emu.show_menu()
-            elif c == "5":
-                print("Exiting...")
-                if emu.run:
-                    emu.stop_kb()
-                break
-            else:
-                print("Invalid choice. Please try again.")
-                
-    except Exception as e:
-        logging.error(f"Application error: {e}")
-        print("Make sure ViGEmBus driver is installed and vgamepad library is available.")
-
-if __name__ == "__main__":
-    main()

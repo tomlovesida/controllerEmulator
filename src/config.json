@@ -1,0 +1,44 @@
+{
+  "keybinds": {
+    "movement": {
+      "forward": "w",
+      "backward": "s",
+      "left": "a",
+      "right": "d"
+    },
+    "buttons": {
+      "cross": "space",
+      "circle": "c",
+      "square": "x",
+      "triangle": "y",
+      "l1": "r",
+      "r1": "t",
+      "l2": "q",
+      "r2": "e",
+      "l3": "f",
+      "r3": "g",
+      "share": "backspace",
+      "options": "enter",
+      "touchpad": "tab",
+      "ps": "home",
+      "dpad_up": "i",
+      "dpad_down": "k",
+      "dpad_left": "j",
+      "dpad_right": "l",
+      "example_mouse_bind": "mouse:left"
+    },
+    "dpad": {
+      "up": "up",
+      "down": "down",
+      "left": "left",
+      "right": "right"
+    }
+  },
+  "settings": {
+    "mouse_sensitivity": 0.05,
+    "deadzone_threshold": 0.01,
+    "controller_type": "dualshock4",
+    "relative_mouse_mode": false,
+    "hide_cursor": false
+  }
+}
