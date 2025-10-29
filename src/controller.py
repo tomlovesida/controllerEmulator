@@ -28,7 +28,7 @@ class ControllerEmulator:
     def deadzone(self, v, dz):
         return 0.0 if abs(v) < dz else v
 
-    def crv(self, d, s, e=1.5):
+    def crv(self, d, s, e=1.2):
         return s * (abs(d) ** e) * (1 if d > 0 else -1)
 
     def setup_log(self):
@@ -202,7 +202,7 @@ class ControllerEmulator:
             except Exception as e:
                 self.log.error(f"Input handler error: {e}")
                 
-            time.sleep(0.002)
+            time.sleep(0.001)
 
     def handle_move(self):
         try:
@@ -246,12 +246,12 @@ class ControllerEmulator:
                     sx = self.deadzone(sx, dz)
                     sy = self.deadzone(sy, dz)
                     
-                    a = 0.25
+                    a = 0.5
                     self.crx = (1 - a) * self.crx + a * sx
                     self.cry = (1 - a) * self.cry + a * sy
                 else:
                     ct = time.time()
-                    if ct - self.lmt > 0.2:
+                    if ct - self.lmt > 0.1:
                         self.crx = 0.0
                         self.cry = 0.0
                 

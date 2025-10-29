@@ -77,8 +77,8 @@ def handle_mouse(cfg, right_stick, crx, cry, lmt, lmx, lmy):
 
                 from .controller import ControllerEmulator
                 ce = ControllerEmulator()
-                sx = ce.crv(dx, sens)
-                sy = ce.crv(dy, sens)
+                sx = ce.crv(dx, sens, e=1.2)
+                sy = ce.crv(dy, sens, e=1.2)
 
                 sx = max(-1.0, min(1.0, sx))
                 sy = max(-1.0, min(1.0, sy))
@@ -87,12 +87,12 @@ def handle_mouse(cfg, right_stick, crx, cry, lmt, lmx, lmy):
                 sx = ce.deadzone(sx, dz)
                 sy = ce.deadzone(sy, dz)
 
-                a = 0.25
+                a = 0.5
                 crx = (1 - a) * crx + a * sx
                 cry = (1 - a) * cry + a * sy
             else:
                 ct = time.time()
-                if ct - lmt > 0.2:
+                if ct - lmt > 0.1:
                     crx = 0.0
                     cry = 0.0
 
