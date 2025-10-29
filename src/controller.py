@@ -28,7 +28,7 @@ class ControllerEmulator:
     def deadzone(self, v, dz):
         return 0.0 if abs(v) < dz else v
 
-    def crv(self, d, s, e=1.2):
+    def crv(self, d, s, e=1.0):
         return s * (abs(d) ** e) * (1 if d > 0 else -1)
 
     def setup_log(self):
@@ -246,12 +246,13 @@ class ControllerEmulator:
                     sx = self.deadzone(sx, dz)
                     sy = self.deadzone(sy, dz)
                     
-                    a = 0.5
-                    self.crx = (1 - a) * self.crx + a * sx
-                    self.cry = (1 - a) * self.cry + a * sy
+                    spd = abs(sx - self.crx) + abs(sy - self.cry)
+                    a = 0.15 if spd > 0.5 else 0.0
+                    self.crx = (1 - a) * self.crx + a * sx if a > 0 else sx
+                    self.cry = (1 - a) * self.cry + a * sy if a > 0 else sy
                 else:
                     ct = time.time()
-                    if ct - self.lmt > 0.1:
+                    if ct - self.lmt > 0.05:
                         self.crx = 0.0
                         self.cry = 0.0
                 
